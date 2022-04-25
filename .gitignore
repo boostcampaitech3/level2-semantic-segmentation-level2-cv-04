@@ -1,0 +1,6 @@
+*.csv
+*.pth
+code/saved
+code/wandb
+code/__pycache__
+data
