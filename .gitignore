@@ -9,3 +9,6 @@ __pycache__/
 *.py[cod]
 
 mmsegmentation/work_dirs
+mmsegmentation/wandb
+mmsegmentation/tools/work_dirs
+mmsegmentation/out
