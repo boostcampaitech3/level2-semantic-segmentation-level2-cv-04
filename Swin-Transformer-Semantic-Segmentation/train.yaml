@@ -1,0 +1,28 @@
+# -- config path
+config_dir : '_base_/custom'
+config_file : 'custom_config'
+
+## -- wandb
+wandb : False
+wandb_proj : 'Segmentation'
+wandb_name : 'Swin-L'
+log_interval : 50
+
+# -- hyperparameter
+seed : 1995
+batch_size : 8
+lr : 0.00006
+
+# -- validation
+validate : False
+eval_interval : 2000
+
+# -- checkpoint
+use_ckpt : True
+ckpt_name : 'upernet_swin_base_patch4_window7_512x512'
+
+## -- save best model
+save_best_model : True
+
+train_data_dir : '/opt/ml/input/mmseg'
+
