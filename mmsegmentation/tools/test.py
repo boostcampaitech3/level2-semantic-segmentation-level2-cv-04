@@ -1,5 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import argparse
+from ast import arg
 import os
 import os.path as osp
 import shutil
@@ -13,12 +14,16 @@ from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import (get_dist_info, init_dist, load_checkpoint,
                          wrap_fp16_model)
 from mmcv.utils import DictAction
+from tqdm import tqdm
 
 from mmseg import digit_version
 from mmseg.apis import multi_gpu_test, single_gpu_test
 from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.models import build_segmentor
 from mmseg.utils import setup_multi_processes
+
+import glob
+import pandas as pd
 
 
 def parse_args():
@@ -96,7 +101,7 @@ def parse_args():
     parser.add_argument(
         '--opacity',
         type=float,
-        default=0.5,
+        default=0.7,
         help='Opacity of painted segmentation map. In (0, 1] range.')
     parser.add_argument('--local_rank', type=int, default=0)
     args = parser.parse_args()
@@ -313,6 +318,24 @@ def main():
             if tmpdir is not None and eval_on_format_results:
                 # remove tmp dir when cityscapes evaluation
                 shutil.rmtree(tmpdir)
+
+    print('\nmaking submission ...')
+    dic = {"image_id":[],"PredictionString":[]}
+    for path in tqdm(sorted(glob.glob(f'{args.show_dir}/*.txt'))):
+        image_id = path.replace(f'{args.show_dir}/','').replace('_03_','_03/').replace('vt_','vt/').replace('.txt','.jpg')
+        with open(path, 'r') as f:
+            value_list = f.readlines()
+            new_value_list = []
+            for i in range(0,len(value_list),2):
+                value = value_list[i].split(' ')
+                value = ' '.join(value[0::2])
+                new_value_list.append(value)
+
+        dic["image_id"].append(image_id)
+        dic["PredictionString"].append(' '.join(new_value_list))
+
+    df = pd.DataFrame(dic)
+    df.to_csv(f'{args.show_dir}/_submission.csv',index=False)
 
 
 if __name__ == '__main__':
