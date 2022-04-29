@@ -11,7 +11,7 @@ import tqdm
 root_dir = '../data/mmseg'
 val_dir = '../data/val.json'
 train_dir = '../data/train.json'
-test_dir = '../data/test.json'
+
 
 os.makedirs(root_dir,exist_ok=True)
 os.makedirs(os.path.join(root_dir,'labels'),exist_ok=True)
@@ -32,7 +32,6 @@ for path in tqdm.tqdm(os.listdir('../data/batch_03/')):
 
 val_coco = COCO(val_dir)
 train_coco = COCO(train_dir)
-test_coco = COCO(test_dir)
 
 def make_txt(coco):
     for idx in tqdm.tqdm(coco.getImgIds()):        # cocodata의 모든 image idx list
@@ -62,12 +61,11 @@ data_root = root_dir
 img_dir = 'images'
 ann_dir = 'labels'
 # define class and plaette for better visualization
-classes = ['background']
+classes = []
 for c in cats:
     classes.append(c['name'])
-palette = [[120, 120, 120], [180, 120, 120], [6, 230, 230], [80, 50, 50],
-            [4, 200, 3], [120, 120, 80], [140, 140, 140], [204, 5, 255],
-            [230, 230, 230], [4, 250, 7], [224, 5, 255]]
+palette = [[128, 128, 128], [129, 127, 38], [120, 69, 125], [53, 125, 34], 
+           [0, 11, 123], [118, 20, 12], [122, 81, 25], [241, 134, 51],[0, 241, 0],[0, 241, 0]]
 
 print('making ann drawing ...')
 for file in tqdm.tqdm(mmcv.scandir(osp.join(data_root, ann_dir), suffix='.txt'),total=3272):
@@ -90,13 +88,6 @@ with open(root_dir + '/splits/val.txt','w') as f:
     for idx in tqdm.tqdm(val_coco.getImgIds()):
         image_id = val_coco.getImgIds(imgIds=idx)
         image_infos = val_coco.loadImgs(image_id)[0]    
-        f.write(image_infos['file_name'].replace('/','_').replace('.jpg','') + '\n')
-
-print('test split ...')
-with open(root_dir + '/splits/test.txt','w') as f:
-    for idx in tqdm.tqdm(test_coco.getImgIds()):
-        image_id = test_coco.getImgIds(imgIds=idx)
-        image_infos = test_coco.loadImgs(image_id)[0]    
         f.write(image_infos['file_name'].replace('/','_').replace('.jpg','') + '\n')
 
 print('Done')
