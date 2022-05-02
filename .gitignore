@@ -9,5 +9,9 @@ __pycache__/
 *.py[cod]
 
 mmsegmentation/work_dirs
+
 custom_dataset
 Swin-Transformer-Semantic-Segmentation/wandb
+
+mmsegmentation/out
+mmsegmentation/wandb
