@@ -22,7 +22,8 @@ def main(config_train):
 								hooks=[dict(type = 'TextLoggerHook'),
 										dict(type = 'WandbLoggerHook',
 											init_kwargs = dict(project = config_train['wandb_proj'],
-															name = config_train['wandb_name']))
+															name = config_train['wandb_name'],
+															entity = 'cv04'))
 									])
 	else:
 		cfg.log_config = dict(interval = log_interval,

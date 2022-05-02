@@ -1,15 +1,15 @@
 # -- config path
-config_dir : '_base_/custom'
+config_dir : '_rhs_/custom'
 config_file : 'custom_config'
 
 ## -- wandb
-wandb : False
-wandb_proj : 'Segmentation'
-wandb_name : 'Swin-L'
+wandb : True
+wandb_proj : 'Semantic Segmentation'
+wandb_name : 'Swin-B'
 log_interval : 50
 
 # -- hyperparameter
-seed : 1995
+seed : 84
 batch_size : 8
 lr : 0.00006
 
@@ -24,5 +24,5 @@ ckpt_name : 'upernet_swin_base_patch4_window7_512x512'
 ## -- save best model
 save_best_model : True
 
-train_data_dir : '/opt/ml/input/mmseg'
+train_data_dir : '/opt/ml/level2-semantic-segmentation-level2-cv-04/custom_dataset'
 
