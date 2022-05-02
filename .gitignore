@@ -11,3 +11,4 @@ __pycache__/
 mmsegmentation/work_dirs
 mmsegmentation/out
 mmsegmentation/wandb
+mmsegmentation/nohup.out
