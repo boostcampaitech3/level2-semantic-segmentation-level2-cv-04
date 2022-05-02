@@ -50,5 +50,5 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        img_dir='test/img/',
+        img_dir='test/',
         pipeline=test_pipeline))
