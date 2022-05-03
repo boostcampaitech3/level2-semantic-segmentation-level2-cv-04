@@ -13,110 +13,113 @@ from mmcv.runner import load_checkpoint
 from mmcv.parallel import MMDataParallel
 from pycocotools.coco import COCO
 import albumentations as A
+import matplotlib.pyplot as plt
 
 def post_pro(idx : int, coco : COCO, output : list):
-    """
-    Inference한 Mask를 256 Size로 transform하고 file name list와 transform한 mask를 출력하는 함수
+	"""
+	Inference한 Mask를 256 Size로 transform하고 file name list와 transform한 mask를 출력하는 함수
 
-    Input:
-        idx : 현재 이미지의 위치(index)
-        coco : COCO 형식으로 불러온 test.json
-        output : Inference한 Mask
-    
-    Output:
-        file_name_list : file name list
-        preds_array : 256 size로 transform한 mask
-    """
-    # -- set trainform
-    size = 256
-    transform = A.Compose([A.Resize(size, size)])
+	Input:
+		idx : 현재 이미지의 위치(index)
+		coco : COCO 형식으로 불러온 test.json
+		output : Inference한 Mask
 
-    # -- image_ids
-    file_name_list = []
+	Output:
+		file_name_list : file name list
+		preds_array : 256 size로 transform한 mask
+	"""
+	# -- set trainform
+	size = 256
+	transform = A.Compose([A.Resize(size, size)])
 
-    # -- PredictionString
-    preds_array = np.empty((0, size*size), dtype = np.long)
+	# -- image_ids
+	file_name_list = []
 
-    # -- get file name
-    image_id = coco.getImgIds(imgIds = idx)
-    image_infos = coco.loadImgs(image_id)[0]
-    file_name = image_infos['file_name']
+	# -- PredictionString
+	preds_array = np.empty((0, size*size), dtype = np.long)
 
-    # -- current predicted mask
-    outs = output[idx]
+	# -- get file name
+	image_id = coco.getImgIds(imgIds = idx)
+	image_infos = coco.loadImgs(image_id)[0]
+	file_name = image_infos['file_name']
 
-    # -- load test image for transform
-    img = cv2.imread(f'./input/data/{file_name}')
+	# -- current predicted mask
+	outs = output[idx]
 
-    # -- transform running
-    transformed = transform(image = img, mask = outs, interpolation = 2)
+	# -- load test image for transform
+	# img = cv2.imread(f'./input/data/{file_name}')
+	img = cv2.imread(f'/opt/ml/input/data/{file_name}')
 
-    # -- flatten mask
-    mask = transformed['mask'].reshape((256 * 256)).astype(int)
+	# -- transform running
+	transformed = transform(image = img, mask = outs, interpolation = 2)
 
-    # -- stacking
-    file_name_list.append(file_name)
-    preds_array = np.vstack((preds_array, mask))
+	# -- flatten mask
+	mask = transformed['mask'].reshape((256 * 256)).astype(int)
 
-    return file_name_list, preds_array
+	# -- stacking
+	file_name_list.append(file_name)
+	preds_array = np.vstack((preds_array, mask))
+
+	return file_name_list, preds_array
 
 def main(config_infer):
-    # -- config file
-    config_dir = config_infer['config_dir']
-    config_file = config_infer['config_file']
-    cfg = Config.fromfile(f'./configs/{config_dir}/{config_file}.py')
+	# -- config file
+	config_dir = config_infer['config_dir']
+	config_file = config_infer['config_file']
+	cfg = Config.fromfile(f'./configs/{config_dir}/{config_file}.py')
 
-    # -- test mode
-    cfg.data.test.test_mode = True
+	# -- test mode
+	cfg.data.test.test_mode = True
 
-    # -- gpu ids
-    cfg.gpu_ids = [1]
+	# -- gpu ids
+	cfg.gpu_ids = [0]
 
-    # -- work directory(for load *.pth)
-    cfg.work_dir = os.path.join('./work_dirs', config_file)
+	# -- work directory(for load *.pth)
+	cfg.work_dir = os.path.join('./work_dirs', config_file)
 
-    # -- train config not use
-    cfg.model.train_cfg = None
+	# -- train config not use
+	cfg.model.train_cfg = None
 
-    # -- dataset & dataloader
-    dataset = build_dataset(cfg.data.test)
-    data_loader = build_dataloader(
-            dataset,
-            samples_per_gpu = 1,
-            workers_per_gpu = cfg.data.workers_per_gpu,
-            dist = False,
-            shuffle = False)
+	# -- dataset & dataloader
+	dataset = build_dataset(cfg.data.test)
+	data_loader = build_dataloader(
+			dataset,
+			samples_per_gpu = 1,
+			workers_per_gpu = cfg.data.workers_per_gpu,
+			dist = False,
+			shuffle = False)
 
-    # -- checkpoint
-    ckpt_name = config_infer['ckpt_name']
-    checkpoint_path = os.path.join(cfg.work_dir, f'{ckpt_name}.pth')
+	# -- checkpoint
+	ckpt_name = config_infer['ckpt_name']
+	checkpoint_path = os.path.join(cfg.work_dir, f'{ckpt_name}.pth')
 
-    # -- model
-    model = build_segmentor(cfg.model, test_cfg = cfg.get('test_cfg')) # build detector
-    load_checkpoint(model, checkpoint_path, map_location = 'cpu') # ckpt load
-    model.CLASSES = dataset.CLASSES
-    model = MMDataParallel(model.cuda(), device_ids = [0])
+	# -- model
+	model = build_segmentor(cfg.model, test_cfg = cfg.get('test_cfg')) # build detector
+	load_checkpoint(model, checkpoint_path, map_location = 'cpu') # ckpt load
+	model.CLASSES = dataset.CLASSES
+	model = MMDataParallel(model.cuda(), device_ids = [0])
 
-    # -- running
-    output = single_gpu_test(model, data_loader) # output 계산
-    
-    # -- open sample_submisson.csv & test.json
-    submission = pd.read_csv('./sample_submission.csv', index_col = None)
-    coco = COCO('./input/data/test.json')
+	# -- running
+	output = single_gpu_test(model, data_loader) # output 계산
 
-    # -- prediction for output
-    for index in range(len(output)):
-        # -- post processing
-        file_names, preds = post_pro(index, coco, output)
+	# -- open sample_submisson.csv & test.json
+	# submission = pd.read_csv('./sample_submission.csv', index_col = None)
+	submission = pd.DataFrame(columns=["image_id","PredictionString"])
+	coco = COCO('/opt/ml/input/data/test.json')
 
-        # -- Input PredictionString
-        for file_name, string in zip(file_names, preds):
-            submission = submission.append({"image_id" : file_name, "PredictionString" : ' '.join(str(e) for e in string.tolist())},
-                                            ignore_index = True)
+	# -- prediction for output
+	for index in range(len(output)):
+		# -- post processing
+		file_names, preds = post_pro(index, coco, output)
 
-    # -- save csv
-    csv_name = config_infer['csv_name']
-    submission.to_csv(cfg.work_dir + f"./submission/{csv_name}.csv", index=False)
+		# -- Input PredictionString
+		for file_name, string in zip(file_names, preds):
+			submission = submission.append({"image_id" : file_name, "PredictionString" : ' '.join(str(e) for e in string.tolist())},
+											ignore_index = True)
+
+	# -- save csv
+	csv_name = config_infer['csv_name']
+	submission.to_csv(f"./{csv_name}.csv", index=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

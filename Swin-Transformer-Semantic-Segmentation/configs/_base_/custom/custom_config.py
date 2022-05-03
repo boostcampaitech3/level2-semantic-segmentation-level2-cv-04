@@ -4,8 +4,8 @@ _base_ = [
     '../models/upernet_swin.py',
     '../datasets/coco-trash.py',
     '../custom_runtime.py',
-    # '../schedules/custom_schedule.py'
-	'../schedules/schedule_20k.py'
+    '../schedules/custom_schedule.py'
+	# '../schedules/schedule_20k.py'
 ]
 
 # model = dict(
