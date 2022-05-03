@@ -11,4 +11,5 @@ __pycache__/
 mmsegmentation/work_dirs
 mmsegmentation/wandb
 mmsegmentation/tools/work_dirs
+mmsegmentation/output
 mmsegmentation/out
