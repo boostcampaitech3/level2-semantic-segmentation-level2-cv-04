@@ -1,0 +1,9 @@
+# -- config path
+config_dir : '_base_/custom'
+config_file : 'custom_config'
+
+# -- checkpoint
+ckpt_name : 'latest'
+
+# -- save csv name
+csv_name : 'submission'
