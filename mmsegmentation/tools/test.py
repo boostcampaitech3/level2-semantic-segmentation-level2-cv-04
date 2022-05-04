@@ -244,7 +244,7 @@ def main():
     model.eval()
     model.to(device)
     # Get logit
-
+    os.makedirs(args.show_dir,exist_ok=True)
     for i in tqdm(range(len(dataset))):
         sample = dataset[i]
         img = sample['img'][0].data.unsqueeze(0).to(device)
