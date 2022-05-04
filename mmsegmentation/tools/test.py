@@ -6,9 +6,11 @@ import os.path as osp
 import shutil
 import time
 import warnings
+from matplotlib.pyplot import axis
 
 import mmcv
 import torch
+import torchvision
 from mmcv.cnn.utils import revert_sync_batchnorm
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import (get_dist_info, init_dist, load_checkpoint,
@@ -237,87 +239,114 @@ def main():
         print('"PALETTE" not found in meta, use dataset.PALETTE instead')
         model.PALETTE = dataset.PALETTE
 
-    # clean gpu memory when starting a new evaluation.
-    torch.cuda.empty_cache()
-    eval_kwargs = {} if args.eval_options is None else args.eval_options
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # Deprecated
-    efficient_test = eval_kwargs.get('efficient_test', False)
-    if efficient_test:
-        warnings.warn(
-            '``efficient_test=True`` does not have effect in tools/test.py, '
-            'the evaluation and format results are CPU memory efficient by '
-            'default')
+    model.eval()
+    model.to(device)
+    # Get logit
 
-    eval_on_format_results = (
-        args.eval is not None and 'cityscapes' in args.eval)
-    if eval_on_format_results:
-        assert len(args.eval) == 1, 'eval on format results is not ' \
-                                    'applicable for metrics other than ' \
-                                    'cityscapes'
-    if args.format_only or eval_on_format_results:
-        if 'imgfile_prefix' in eval_kwargs:
-            tmpdir = eval_kwargs['imgfile_prefix']
-        else:
-            tmpdir = '.format_cityscapes'
-            eval_kwargs.setdefault('imgfile_prefix', tmpdir)
-        mmcv.mkdir_or_exist(tmpdir)
-    else:
-        tmpdir = None
+    for i in tqdm(range(len(dataset))):
+        sample = dataset[i]
+        img = sample['img'][0].data.unsqueeze(0).to(device)
+        img = torchvision.transforms.Resize((512,512))(img)
+        logit = model.whole_inference(img=img, img_meta=sample['img_metas'][0].data, rescale=False)
+        logit = torch.nn.Softmax(dim=None)(logit)
+        result = torch.argmax(logit,dim=1)
 
-    if not distributed:
-        warnings.warn(
-            'SyncBN is only supported with DDP. To be compatible with DP, '
-            'we convert SyncBN to BN. Please use dist_train.sh which can '
-            'avoid this error.')
-        if not torch.cuda.is_available():
-            assert digit_version(mmcv.__version__) >= digit_version('1.4.4'), \
-                'Please use MMCV >= 1.4.4 for CPU training!'
-        model = revert_sync_batchnorm(model)
-        model = MMDataParallel(model, device_ids=cfg.gpu_ids)
-        results = single_gpu_test(
-            model,
-            data_loader,
-            args.show,
-            args.show_dir,
-            False,
-            args.opacity,
-            pre_eval=args.eval is not None and not eval_on_format_results,
-            format_only=args.format_only or eval_on_format_results,
-            format_args=eval_kwargs)
-    else:
-        model = MMDistributedDataParallel(
-            model.cuda(),
-            device_ids=[torch.cuda.current_device()],
-            broadcast_buffers=False)
-        results = multi_gpu_test(
-            model,
-            data_loader,
-            args.tmpdir,
-            args.gpu_collect,
-            False,
-            pre_eval=args.eval is not None and not eval_on_format_results,
-            format_only=args.format_only or eval_on_format_results,
-            format_args=eval_kwargs)
+        file_name = sample['img_metas'][0].data['filename'].split('/')[-1]
+        # file_name_ann = file_name.replace('.jpg','_ann.jpg')
+        file_name_pt = file_name.replace('.jpg','.pt')
+        file_name_txt = file_name.replace('.jpg','.txt')
 
-    rank, _ = get_dist_info()
-    if rank == 0:
-        if args.out:
-            warnings.warn(
-                'The behavior of ``args.out`` has been changed since MMSeg '
-                'v0.16, the pickled outputs could be seg map as type of '
-                'np.array, pre-eval results or file paths for '
-                '``dataset.format_results()``.')
-            print(f'\nwriting results to {args.out}')
-            mmcv.dump(results, args.out)
-        if args.eval:
-            eval_kwargs.update(metric=args.eval)
-            metric = dataset.evaluate(results, **eval_kwargs)
-            metric_dict = dict(config=args.config, metric=metric)
-            mmcv.dump(metric_dict, json_file, indent=4)
-            if tmpdir is not None and eval_on_format_results:
-                # remove tmp dir when cityscapes evaluation
-                shutil.rmtree(tmpdir)
+        # logit 저장
+        torch.save(logit,f'{args.show_dir}/{file_name_pt}')
+        # result 저장
+        with open(f'{args.show_dir}/{file_name_txt}','w') as f:
+            for r in result[0]:
+                f.write(' '.join(map(str,r.tolist())) + '\n')
+
+
+    # # clean gpu memory when starting a new evaluation.
+    # torch.cuda.empty_cache()
+    # eval_kwargs = {} if args.eval_options is None else args.eval_options
+
+    # # Deprecated
+    # efficient_test = eval_kwargs.get('efficient_test', False)
+    # if efficient_test:
+    #     warnings.warn(
+    #         '``efficient_test=True`` does not have effect in tools/test.py, '
+    #         'the evaluation and format results are CPU memory efficient by '
+    #         'default')
+
+    # eval_on_format_results = (
+    #     args.eval is not None and 'cityscapes' in args.eval)
+    # if eval_on_format_results:
+    #     assert len(args.eval) == 1, 'eval on format results is not ' \
+    #                                 'applicable for metrics other than ' \
+    #                                 'cityscapes'
+    # if args.format_only or eval_on_format_results:
+    #     if 'imgfile_prefix' in eval_kwargs:
+    #         tmpdir = eval_kwargs['imgfile_prefix']
+    #     else:
+    #         tmpdir = '.format_cityscapes'
+    #         eval_kwargs.setdefault('imgfile_prefix', tmpdir)
+    #     mmcv.mkdir_or_exist(tmpdir)
+    # else:
+    #     tmpdir = None
+
+    # if not distributed:
+    #     warnings.warn(
+    #         'SyncBN is only supported with DDP. To be compatible with DP, '
+    #         'we convert SyncBN to BN. Please use dist_train.sh which can '
+    #         'avoid this error.')
+    #     if not torch.cuda.is_available():
+    #         assert digit_version(mmcv.__version__) >= digit_version('1.4.4'), \
+    #             'Please use MMCV >= 1.4.4 for CPU training!'
+    #     model = revert_sync_batchnorm(model)
+    #     model = MMDataParallel(model, device_ids=cfg.gpu_ids)
+    #     results = single_gpu_test(
+    #         model,
+    #         data_loader,
+    #         args.show,
+    #         args.show_dir,
+    #         False,
+    #         args.opacity,
+    #         pre_eval=args.eval is not None and not eval_on_format_results,
+    #         format_only=args.format_only or eval_on_format_results,
+    #         format_args=eval_kwargs)
+    # else:
+    #     model = MMDistributedDataParallel(
+    #         model.cuda(),
+    #         device_ids=[torch.cuda.current_device()],
+    #         broadcast_buffers=False)
+    #     results = multi_gpu_test(
+    #         model,
+    #         data_loader,
+    #         args.tmpdir,
+    #         args.gpu_collect,
+    #         False,
+    #         pre_eval=args.eval is not None and not eval_on_format_results,
+    #         format_only=args.format_only or eval_on_format_results,
+    #         format_args=eval_kwargs)
+
+    # rank, _ = get_dist_info()
+    # if rank == 0:
+    #     if args.out:
+    #         warnings.warn(
+    #             'The behavior of ``args.out`` has been changed since MMSeg '
+    #             'v0.16, the pickled outputs could be seg map as type of '
+    #             'np.array, pre-eval results or file paths for '
+    #             '``dataset.format_results()``.')
+    #         print(f'\nwriting results to {args.out}')
+    #         mmcv.dump(results, args.out)
+    #     if args.eval:
+    #         eval_kwargs.update(metric=args.eval)
+    #         metric = dataset.evaluate(results, **eval_kwargs)
+    #         metric_dict = dict(config=args.config, metric=metric)
+    #         mmcv.dump(metric_dict, json_file, indent=4)
+    #         if tmpdir is not None and eval_on_format_results:
+    #             # remove tmp dir when cityscapes evaluation
+    #             shutil.rmtree(tmpdir)
 
     print('\nmaking submission ...')
     dic = {"image_id":[],"PredictionString":[]}
