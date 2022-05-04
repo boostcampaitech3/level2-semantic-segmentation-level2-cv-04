@@ -1,11 +1,5 @@
 # yapf:disable
-log_config = dict(
-    interval=50,
-    hooks=[
-        dict(type="TextLoggerHook"),
-        dict(type="WandbLoggerHook", init_kwargs=dict(project="Semantic Segmentation", name="mmseg_test_uperswin")),
-    ],
-)
+log_config = dict()
 # yapf:enable
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
