@@ -1,4 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from fileinput import filename
 import os.path as osp
 import warnings
 from collections import OrderedDict
@@ -13,7 +14,7 @@ from mmseg.core import eval_metrics, intersect_and_union, pre_eval_to_metrics
 from mmseg.utils import get_root_logger
 from .builder import DATASETS
 from .pipelines import Compose, LoadAnnotations
-
+import wandb
 
 @DATASETS.register_module()
 class CustomDataset(Dataset):
@@ -274,7 +275,7 @@ class CustomDataset(Dataset):
             self.gt_seg_map_loader(results)
             yield results['gt_semantic_seg']
 
-    def pre_eval(self, preds, indices):
+    def pre_eval(self, preds, indices, image_log=True):
         """Collect eval result from each iteration.
 
         Args:
@@ -294,6 +295,10 @@ class CustomDataset(Dataset):
             preds = [preds]
 
         pre_eval_results = []
+        columns=["id", "ground truth", "predictions", "mIoU"]
+        columns.extend(self.CLASSES)
+        if min(indices) == 0:
+            self.wandb_table = wandb.Table(columns=columns)
 
         for pred, index in zip(preds, indices):
             seg_map = self.get_gt_seg_map_by_idx(index)
@@ -310,6 +315,16 @@ class CustomDataset(Dataset):
                     # for more ditails
                     label_map=dict(),
                     reduce_zero_label=self.reduce_zero_label))
+            if image_log == True:
+                bg_img = mmcv.imread(self.img_dir + '/' + self.img_infos[index]['filename']) 
+                row = [self.img_infos[index]['filename'], self.wb_mask(bg_img = bg_img, true_mask = seg_map), self.wb_mask(bg_img = bg_img, pred_mask = pred)]
+            else:
+                row = [self.img_infos[index]['filename'], 'None', 'None']
+
+            class_iou = pre_eval_results[-1][0] / pre_eval_results[-1][3] # 가장 마지막에 추가된 것 
+            row.append(np.nanmean(class_iou))
+            row.extend(class_iou) 
+            self.wandb_table.add_data(*row)
 
         return pre_eval_results
 
@@ -457,7 +472,7 @@ class CustomDataset(Dataset):
         class_table_data = PrettyTable()
         for key, val in ret_metrics_class.items():
             class_table_data.add_column(key, val)
-
+        
         summary_table_data = PrettyTable()
         for key, val in ret_metrics_summary.items():
             if key == 'aAcc':
@@ -477,11 +492,34 @@ class CustomDataset(Dataset):
             else:
                 eval_results['m' + key] = value / 100.0
 
+        wandb_class = dict()
+        for i, c in enumerate(ret_metrics_class['Class']):
+            key_name1 = str(i) + '_' + c + '.' + 'IoU'
+            wandb_class[key_name1] = ret_metrics_class['IoU'][i]
+            key_name2 = str(i) +'_' + c + '.' + 'Acc'
+            wandb_class[key_name2] = ret_metrics_class['Acc'][i]
+
         ret_metrics_class.pop('Class', None)
         for key, value in ret_metrics_class.items():
             eval_results.update({
                 key + '.' + str(name): value[idx] / 100.0
                 for idx, name in enumerate(class_names)
             })
-
+            
+        wandb.log({"val/mIoU":eval_results['mIoU'],"val/mAcc":eval_results['mAcc'],
+        "val/aAcc":eval_results['aAcc'],"class/":wandb_class, "predictions":self.wandb_table})
+        
         return eval_results
+
+    # wrapper for logging masks to W&B
+    def wb_mask(self, bg_img, pred_mask=[], true_mask=[]):
+        masks = {}
+        class_labels = dict((i, c) for i, c in zip(range(len(self.CLASSES)), self.CLASSES))
+        if len(pred_mask) > 0:
+            masks["prediction"] = {"mask_data" : pred_mask, "class_labels":class_labels}
+        if len(true_mask) > 0:
+            masks["ground truth"] = {"mask_data" : true_mask, "class_labels":class_labels}
+        # Setup a WandB Classes object. This will give additional metadata for visuals
+        class_set = wandb.Classes([{'name': name, 'id': id} 
+                           for name, id in zip(self.CLASSES, list(range(len(self.CLASSES))))])
+        return wandb.Image(bg_img, classes=class_set, masks=masks)
