@@ -12,3 +12,6 @@ mmsegmentation/work_dirs
 mmsegmentation/out
 mmsegmentation/wandb
 *.jpg
+mmsegmentation/output
+mmsegmentation/nohup.out
+
