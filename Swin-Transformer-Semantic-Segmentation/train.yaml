@@ -3,13 +3,13 @@ config_dir : '_base_/custom'
 config_file : 'custom_config'
 
 ## -- wandb
-wandb : False
+wandb : True
 wandb_proj : 'Semantic Segmentation'
 wandb_name : 'uperswin_512_512'
 log_interval : 50
 
 # -- hyperparameter
-seed : 1995
+seed : 84
 batch_size : 8
 lr : 0.00006
 
@@ -24,5 +24,5 @@ ckpt_name : 'upernet_swin_base_patch4_window7_512x512'
 ## -- save best model
 save_best_model : True
 
-train_data_dir_root : '/opt/ml/input/mmseg'
+data_dir_root : '/opt/ml/input/mmseg'
 

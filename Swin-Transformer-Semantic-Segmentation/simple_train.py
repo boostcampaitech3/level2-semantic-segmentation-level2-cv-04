@@ -48,11 +48,11 @@ def main(config_train):
 		cfg.checkpoint_config['interval'] = config_train['eval_interval']
 
 	# -- dataset
-	if config_train['train_data_dir_root']:
-		cfg.data['train']['img_dir']=os.path.join(config_train['train_data_dir_root'],'images/training')
-		cfg.data['train']['ann_dir']=os.path.join(config_train['train_data_dir_root'],'annotations/training')
-		cfg.data['val']['img_dir']=os.path.join(config_train['train_data_dir_root'],'images/training')
-		cfg.data['val']['ann_dir']=os.path.join(config_train['train_data_dir_root'],'annotations/training')
+	if config_train['data_dir_root']:
+		cfg.data['train']['img_dir']=os.path.join(config_train['data_dir_root'],'images/training')
+		cfg.data['train']['ann_dir']=os.path.join(config_train['data_dir_root'],'annotations/training')
+		cfg.data['val']['img_dir']=os.path.join(config_train['data_dir_root'],'images/validation')
+		cfg.data['val']['ann_dir']=os.path.join(config_train['data_dir_root'],'annotations/validation')
 	datasets = [build_dataset(cfg.data.train)]
 
 	# -- build model
