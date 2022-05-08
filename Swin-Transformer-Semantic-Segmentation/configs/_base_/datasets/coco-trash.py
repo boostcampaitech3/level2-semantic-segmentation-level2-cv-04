@@ -1,6 +1,6 @@
 # dataset settings
 dataset_type = 'COCOTrashDataset'
-data_root = '/opt/ml/input/mmseg'
+data_root = '/opt/ml/input/data/mmseg'
 img_norm_cfg = dict(
     mean=[0.5, 0.5, 0.5], std=[0.2, 0.2, 0.2], to_rgb=True)
 crop_size = (384, 384)
@@ -38,17 +38,30 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        img_dir=f'{data_root}/images/training',
-        ann_dir=f'{data_root}/annotations/training',
+        img_dir=f'{data_root}/images/',
+        ann_dir=f'{data_root}/labels',
+        split = f'{data_root}/splits/train.txt',
         pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
         data_root=data_root,
+<<<<<<< HEAD
         img_dir=f'{data_root}/images/validation',
         ann_dir=f'{data_root}/annotations/validation',
+=======
+        img_dir=f'{data_root}/images/',
+        ann_dir=f'{data_root}/labels',
+        split = f'{data_root}/splits/val.txt',
+>>>>>>> 288b97b... [fix] parameters for wandb test
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
         data_root=data_root,
+<<<<<<< HEAD
         img_dir='test/',
+=======
+        img_dir=f'{data_root}/images/',
+        ann_dir=f'{data_root}/labels',
+        split = f'{data_root}/splits/test.txt',
+>>>>>>> 288b97b... [fix] parameters for wandb test
         pipeline=test_pipeline))
