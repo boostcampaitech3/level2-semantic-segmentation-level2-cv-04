@@ -275,7 +275,11 @@ class CustomDataset(Dataset):
             self.gt_seg_map_loader(results)
             yield results['gt_semantic_seg']
 
+<<<<<<< HEAD
     def pre_eval(self, preds, indices, img_log=False):
+=======
+    def pre_eval(self, preds, indices, image_log=True):
+>>>>>>> 603fd7f393ec93d21bea90f5576d7b23e7b4395d
         """Collect eval result from each iteration.
 
         Args:
@@ -315,7 +319,11 @@ class CustomDataset(Dataset):
                     # for more ditails
                     label_map=dict(),
                     reduce_zero_label=self.reduce_zero_label))
+<<<<<<< HEAD
             if img_log == True:
+=======
+            if image_log == True:
+>>>>>>> 603fd7f393ec93d21bea90f5576d7b23e7b4395d
                 bg_img = mmcv.imread(self.img_dir + '/' + self.img_infos[index]['filename']) 
                 row = [self.img_infos[index]['filename'], self.wb_mask(bg_img = bg_img, true_mask = seg_map), self.wb_mask(bg_img = bg_img, pred_mask = pred)]
             else:
@@ -507,7 +515,11 @@ class CustomDataset(Dataset):
             })
             
         wandb.log({"val/mIoU":eval_results['mIoU'],"val/mAcc":eval_results['mAcc'],
+<<<<<<< HEAD
         "val/aAcc":eval_results['aAcc'],"val/class/":wandb_class, "predictions":self.wandb_table})
+=======
+        "val/aAcc":eval_results['aAcc'],"class/":wandb_class, "predictions":self.wandb_table})
+>>>>>>> 603fd7f393ec93d21bea90f5576d7b23e7b4395d
         
         return eval_results
 
