@@ -12,23 +12,36 @@ class EvalHook(Hook):
         interval (int): Evaluation interval (by epochs). Default: 1.
     """
 
-    def __init__(self, dataloader, interval=1, by_epoch=False, **eval_kwargs):
+    def __init__(self, dataloader, interval=1, by_epoch=False, img_log_interval=None, **eval_kwargs):
         if not isinstance(dataloader, DataLoader):
             raise TypeError('dataloader must be a pytorch DataLoader, but got '
                             f'{type(dataloader)}')
         self.dataloader = dataloader
         self.interval = interval
         self.by_epoch = by_epoch
+        self.img_log_interval = img_log_interval
         self.eval_kwargs = eval_kwargs
 
     def after_train_iter(self, runner):
         """After train epoch hook."""
         if self.by_epoch or not self.every_n_iters(runner, self.interval):
             return
-        from mmseg.apis import single_gpu_test
-        runner.log_buffer.clear()
-        results = single_gpu_test(runner.model, self.dataloader, show=False)
-        self.evaluate(runner, results)
+        if self.img_log_interval == None:
+            from mmseg.apis import single_gpu_test
+            runner.log_buffer.clear()
+            results = single_gpu_test(runner.model, self.dataloader, show=False)
+            self.evaluate(runner, results)
+        else:        
+            if self.every_n_iters(runner, self.img_log_interval):
+                from mmseg.apis import single_gpu_test
+                runner.log_buffer.clear()
+                results = single_gpu_test(runner.model, self.dataloader, show=False)
+                self.evaluate(runner, results, img_log = True)
+            else:
+                from mmseg.apis import single_gpu_test
+                runner.log_buffer.clear()
+                results = single_gpu_test(runner.model, self.dataloader, show=False)
+                self.evaluate(runner, results)
 
     def after_train_epoch(self, runner):
         """After train epoch hook."""
@@ -39,10 +52,10 @@ class EvalHook(Hook):
         results = single_gpu_test(runner.model, self.dataloader, show=False)
         self.evaluate(runner, results)
 
-    def evaluate(self, runner, results):
+    def evaluate(self, runner, results, img_log = False):
         """Call evaluate function of dataset."""
         eval_res = self.dataloader.dataset.evaluate(
-            results, logger=runner.logger, **self.eval_kwargs)
+            results, logger=runner.logger, img_log = img_log, **self.eval_kwargs)
         for name, val in eval_res.items():
             runner.log_buffer.output[name] = val
         runner.log_buffer.ready = True

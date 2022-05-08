@@ -84,6 +84,7 @@ def total_intersect_and_union(results,
          ndarray: The ground truth histogram on all classes.
     """
 
+    imgs_iou = []
     num_imgs = len(results)
     assert len(gt_seg_maps) == num_imgs
     total_area_intersect = np.zeros((num_classes, ), dtype=np.float)
@@ -91,15 +92,21 @@ def total_intersect_and_union(results,
     total_area_pred_label = np.zeros((num_classes, ), dtype=np.float)
     total_area_label = np.zeros((num_classes, ), dtype=np.float)
     for i in range(num_imgs):
+        img_iou = []
         area_intersect, area_union, area_pred_label, area_label = \
             intersect_and_union(results[i], gt_seg_maps[i], num_classes,
                                 ignore_index, label_map, reduce_zero_label)
+        # np.seterr(invalid='ignore')
+        class_iou = area_intersect / area_union
+        img_iou.append(np.nanmean(class_iou))
+        img_iou.extend(class_iou) 
+        imgs_iou.append(img_iou)
         total_area_intersect += area_intersect
         total_area_union += area_union
         total_area_pred_label += area_pred_label
         total_area_label += area_label
     return total_area_intersect, total_area_union, \
-        total_area_pred_label, total_area_label
+        total_area_pred_label, total_area_label, imgs_iou
 
 
 def mean_iou(results,
@@ -207,7 +214,7 @@ def eval_metrics(results,
     if not set(metrics).issubset(set(allowed_metrics)):
         raise KeyError('metrics {} is not supported'.format(metrics))
     total_area_intersect, total_area_union, total_area_pred_label, \
-        total_area_label = total_intersect_and_union(results, gt_seg_maps,
+        total_area_label, imgs_iou = total_intersect_and_union(results, gt_seg_maps,
                                                      num_classes, ignore_index,
                                                      label_map,
                                                      reduce_zero_label)
@@ -226,4 +233,4 @@ def eval_metrics(results,
         ret_metrics = [
             np.nan_to_num(metric, nan=nan_to_num) for metric in ret_metrics
         ]
-    return ret_metrics
+    return ret_metrics, imgs_iou

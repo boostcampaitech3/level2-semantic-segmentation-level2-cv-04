@@ -45,7 +45,11 @@ def main(config_train):
 	if config_train['save_best_model']:
 		cfg.evaluation['save_best'] = 'mIoU'
 		cfg.evaluation['interval'] = config_train['eval_interval']
+<<<<<<< HEAD
 		cfg.checkpoint_config['interval'] = config_train['eval_interval']
+=======
+		cfg.evaluation['img_log_interval'] = config_train['img_log_interval']
+>>>>>>> a18b332... [fix] wandb image log for swin transformer
 
 	# -- dataset
 	if config_train['data_dir_root']:

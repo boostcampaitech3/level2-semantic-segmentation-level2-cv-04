@@ -30,9 +30,11 @@ class EvalHook(_EvalHook):
                  by_epoch=False,
                  efficient_test=False,
                  pre_eval=False,
+                 img_log_interval=None,
                  **kwargs):
         super().__init__(*args, by_epoch=by_epoch, **kwargs)
         self.pre_eval = pre_eval
+        self.img_log_interval = img_log_interval
         if efficient_test:
             warnings.warn(
                 'DeprecationWarning: ``efficient_test`` for evaluation hook '
@@ -45,14 +47,34 @@ class EvalHook(_EvalHook):
         if not self._should_evaluate(runner):
             return
 
-        from mmseg.apis import single_gpu_test
-        results = single_gpu_test(
-            runner.model, self.dataloader, show=False, pre_eval=self.pre_eval)
-        runner.log_buffer.clear()
-        runner.log_buffer.output['eval_iter_num'] = len(self.dataloader)
-        key_score = self.evaluate(runner, results)
-        if self.save_best:
-            self._save_ckpt(runner, key_score)
+        if self.img_log_interval != None:
+            if self.every_n_iters(runner, self.img_log_interval):
+                from mmseg.apis import single_gpu_test
+                results = single_gpu_test(
+                    runner.model, self.dataloader, show=False, pre_eval=self.pre_eval, img_log=True)
+                runner.log_buffer.clear()
+                runner.log_buffer.output['eval_iter_num'] = len(self.dataloader)
+                key_score = self.evaluate(runner, results)
+                if self.save_best:
+                    self._save_ckpt(runner, key_score)
+            else:
+                from mmseg.apis import single_gpu_test
+                results = single_gpu_test(
+                    runner.model, self.dataloader, show=False, pre_eval=self.pre_eval, img_log=False)
+                runner.log_buffer.clear()
+                runner.log_buffer.output['eval_iter_num'] = len(self.dataloader)
+                key_score = self.evaluate(runner, results)
+                if self.save_best:
+                    self._save_ckpt(runner, key_score)
+        else:
+            from mmseg.apis import single_gpu_test
+            results = single_gpu_test(
+                runner.model, self.dataloader, show=False, pre_eval=self.pre_eval)
+            runner.log_buffer.clear()
+            runner.log_buffer.output['eval_iter_num'] = len(self.dataloader)
+            key_score = self.evaluate(runner, results)
+            if self.save_best:
+                self._save_ckpt(runner, key_score)
 
 
 class DistEvalHook(_DistEvalHook):

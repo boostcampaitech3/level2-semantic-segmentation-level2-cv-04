@@ -4,8 +4,13 @@ config_file : 'custom_config'
 
 ## -- wandb
 wandb : True
+<<<<<<< HEAD
 wandb_proj : 'Semantic Segmentation'
 wandb_name : 'uperswin_512_512'
+=======
+wandb_proj : 'Segmentation'
+wandb_name : 'Swin-L'
+>>>>>>> a18b332... [fix] wandb image log for swin transformer
 log_interval : 50
 
 # -- hyperparameter
@@ -16,6 +21,7 @@ lr : 0.00006
 # -- validation
 validate : True
 eval_interval : 2000
+img_log_interval: 2000
 
 # -- checkpoint
 use_ckpt : True

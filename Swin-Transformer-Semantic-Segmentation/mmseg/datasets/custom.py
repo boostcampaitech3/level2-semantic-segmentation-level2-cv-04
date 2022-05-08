@@ -1,20 +1,19 @@
-# Copyright (c) OpenMMLab. All rights reserved.
-from fileinput import filename
+import os
 import os.path as osp
-import warnings
-from collections import OrderedDict
+from functools import reduce
 
 import mmcv
 import numpy as np
 from mmcv.utils import print_log
-from prettytable import PrettyTable
+from terminaltables import AsciiTable
 from torch.utils.data import Dataset
 
-from mmseg.core import eval_metrics, intersect_and_union, pre_eval_to_metrics
+from mmseg.core import eval_metrics
 from mmseg.utils import get_root_logger
 from .builder import DATASETS
-from .pipelines import Compose, LoadAnnotations
+from .pipelines import Compose
 import wandb
+from tqdm import tqdm
 
 @DATASETS.register_module()
 class CustomDataset(Dataset):
@@ -408,7 +407,7 @@ class CustomDataset(Dataset):
     ``xxx{img_suffix}`` and ``xxx{seg_map_suffix}`` (extension is also included
     in the suffix). If split is given, then ``xxx`` is specified in txt file.
     Otherwise, all files in ``img_dir/``and ``ann_dir`` will be loaded.
-    Please refer to ``docs/en/tutorials/new_dataset.md`` for more details.
+    Please refer to ``docs/tutorials/new_dataset.md`` for more details.
 
 
     Args:
@@ -432,11 +431,6 @@ class CustomDataset(Dataset):
             The palette of segmentation map. If None is given, and
             self.PALETTE is None, random palette will be generated.
             Default: None
-        gt_seg_map_loader_cfg (dict, optional): build LoadAnnotations to
-            load gt for evaluation, load from disk by default. Default: None.
-        file_client_args (dict): Arguments to instantiate a FileClient.
-            See :class:`mmcv.fileio.FileClient` for details.
-            Defaults to ``dict(backend='disk')``.
     """
 
     CLASSES = None
@@ -455,9 +449,7 @@ class CustomDataset(Dataset):
                  ignore_index=255,
                  reduce_zero_label=False,
                  classes=None,
-                 palette=None,
-                 gt_seg_map_loader_cfg=None,
-                 file_client_args=dict(backend='disk')):
+                 palette=None):
         self.pipeline = Compose(pipeline)
         self.img_dir = img_dir
         self.img_suffix = img_suffix
@@ -471,16 +463,6 @@ class CustomDataset(Dataset):
         self.label_map = None
         self.CLASSES, self.PALETTE = self.get_classes_and_palette(
             classes, palette)
-        self.gt_seg_map_loader = LoadAnnotations(
-        ) if gt_seg_map_loader_cfg is None else LoadAnnotations(
-            **gt_seg_map_loader_cfg)
-
-        self.file_client_args = file_client_args
-        self.file_client = mmcv.FileClient.infer_client(self.file_client_args)
-
-        if test_mode:
-            assert self.CLASSES is not None, \
-                '`cls.CLASSES` or `classes` should be specified when testing'
 
         # join paths if data_root is specified
         if self.data_root is not None:
@@ -519,27 +501,21 @@ class CustomDataset(Dataset):
 
         img_infos = []
         if split is not None:
-            lines = mmcv.list_from_file(
-                split, file_client_args=self.file_client_args)
-            for line in lines:
-                img_name = line.strip()
-                img_info = dict(filename=img_name + img_suffix)
-                if ann_dir is not None:
-                    seg_map = img_name + seg_map_suffix
-                    img_info['ann'] = dict(seg_map=seg_map)
-                img_infos.append(img_info)
+            with open(split) as f:
+                for line in f:
+                    img_name = line.strip()
+                    img_info = dict(filename=img_name + img_suffix)
+                    if ann_dir is not None:
+                        seg_map = img_name + seg_map_suffix
+                        img_info['ann'] = dict(seg_map=seg_map)
+                    img_infos.append(img_info)
         else:
-            for img in self.file_client.list_dir_or_file(
-                    dir_path=img_dir,
-                    list_dir=False,
-                    suffix=img_suffix,
-                    recursive=True):
+            for img in mmcv.scandir(img_dir, img_suffix, recursive=True):
                 img_info = dict(filename=img)
                 if ann_dir is not None:
                     seg_map = img.replace(img_suffix, seg_map_suffix)
                     img_info['ann'] = dict(seg_map=seg_map)
                 img_infos.append(img_info)
-            img_infos = sorted(img_infos, key=lambda x: x['filename'])
 
         print_log(f'Loaded {len(img_infos)} images', logger=get_root_logger())
         return img_infos
@@ -604,8 +580,8 @@ class CustomDataset(Dataset):
             idx (int): Index of data.
 
         Returns:
-            dict: Testing data after pipeline with new keys introduced by
-                pipeline.
+            dict: Testing data after pipeline with new keys intorduced by
+                piepline.
         """
 
         img_info = self.img_infos[idx]
@@ -613,85 +589,22 @@ class CustomDataset(Dataset):
         self.pre_pipeline(results)
         return self.pipeline(results)
 
-    def format_results(self, results, imgfile_prefix, indices=None, **kwargs):
+    def format_results(self, results, **kwargs):
         """Place holder to format result to dataset specific output."""
-        raise NotImplementedError
+        pass
 
-    def get_gt_seg_map_by_idx(self, index):
-        """Get one ground truth segmentation map for evaluation."""
-        ann_info = self.get_ann_info(index)
-        results = dict(ann_info=ann_info)
-        self.pre_pipeline(results)
-        self.gt_seg_map_loader(results)
-        return results['gt_semantic_seg']
-
-    def get_gt_seg_maps(self, efficient_test=None):
+    def get_gt_seg_maps(self, efficient_test=False):
         """Get ground truth segmentation maps for evaluation."""
-        if efficient_test is not None:
-            warnings.warn(
-                'DeprecationWarning: ``efficient_test`` has been deprecated '
-                'since MMSeg v0.16, the ``get_gt_seg_maps()`` is CPU memory '
-                'friendly by default. ')
-
-        for idx in range(len(self)):
-            ann_info = self.get_ann_info(idx)
-            results = dict(ann_info=ann_info)
-            self.pre_pipeline(results)
-            self.gt_seg_map_loader(results)
-            yield results['gt_semantic_seg']
-
-    def pre_eval(self, preds, indices, image_log=True):
-        """Collect eval result from each iteration.
-
-        Args:
-            preds (list[torch.Tensor] | torch.Tensor): the segmentation logit
-                after argmax, shape (N, H, W).
-            indices (list[int] | int): the prediction related ground truth
-                indices.
-
-        Returns:
-            list[torch.Tensor]: (area_intersect, area_union, area_prediction,
-                area_ground_truth).
-        """
-        # In order to compat with batch inference
-        if not isinstance(indices, list):
-            indices = [indices]
-        if not isinstance(preds, list):
-            preds = [preds]
-
-        pre_eval_results = []
-        columns=["id", "ground truth", "predictions", "mIoU"]
-        columns.extend(self.CLASSES)
-        if min(indices) == 0:
-            self.wandb_table = wandb.Table(columns=columns)
-
-        for pred, index in zip(preds, indices):
-            seg_map = self.get_gt_seg_map_by_idx(index)
-            pre_eval_results.append(
-                intersect_and_union(
-                    pred,
-                    seg_map,
-                    len(self.CLASSES),
-                    self.ignore_index,
-                    # as the labels has been converted when dataset initialized
-                    # in `get_palette_for_custom_classes ` this `label_map`
-                    # should be `dict()`, see
-                    # https://github.com/open-mmlab/mmsegmentation/issues/1415
-                    # for more ditails
-                    label_map=dict(),
-                    reduce_zero_label=self.reduce_zero_label))
-            if image_log == True:
-                bg_img = mmcv.imread(self.img_dir + '/' + self.img_infos[index]['filename']) 
-                row = [self.img_infos[index]['filename'], self.wb_mask(bg_img = bg_img, true_mask = seg_map), self.wb_mask(bg_img = bg_img, pred_mask = pred)]
+        gt_seg_maps = []
+        for img_info in self.img_infos:
+            seg_map = osp.join(self.ann_dir, img_info['ann']['seg_map'])
+            if efficient_test:
+                gt_seg_map = seg_map
             else:
-                row = [self.img_infos[index]['filename'], 'None', 'None']
-
-            class_iou = pre_eval_results[-1][0] / pre_eval_results[-1][3] # 가장 마지막에 추가된 것 
-            row.append(np.nanmean(class_iou))
-            row.extend(class_iou) 
-            self.wandb_table.add_data(*row)
-
-        return pre_eval_results
+                gt_seg_map = mmcv.imread(
+                    seg_map, flag='unchanged', backend='pillow')
+            gt_seg_maps.append(gt_seg_map)
+        return gt_seg_maps
 
     def get_classes_and_palette(self, classes=None, palette=None):
         """Get class names of current dataset.
@@ -720,7 +633,7 @@ class CustomDataset(Dataset):
             raise ValueError(f'Unsupported type {type(classes)} of classes.')
 
         if self.CLASSES:
-            if not set(class_names).issubset(self.CLASSES):
+            if not set(classes).issubset(self.CLASSES):
                 raise ValueError('classes is not a subset of CLASSES.')
 
             # dictionary, its keys are the old label ids and its values
@@ -731,7 +644,7 @@ class CustomDataset(Dataset):
                 if c not in class_names:
                     self.label_map[i] = -1
                 else:
-                    self.label_map[i] = class_names.index(c)
+                    self.label_map[i] = classes.index(c)
 
         palette = self.get_palette_for_custom_classes(class_names, palette)
 
@@ -750,16 +663,7 @@ class CustomDataset(Dataset):
 
         elif palette is None:
             if self.PALETTE is None:
-                # Get random state before set seed, and restore
-                # random state later.
-                # It will prevent loss of randomness, as the palette
-                # may be different in each iteration if not specified.
-                # See: https://github.com/open-mmlab/mmdetection/issues/5844
-                state = np.random.get_state()
-                np.random.seed(42)
-                # random palette
                 palette = np.random.randint(0, 255, size=(len(class_names), 3))
-                np.random.set_state(state)
             else:
                 palette = self.PALETTE
 
@@ -769,111 +673,83 @@ class CustomDataset(Dataset):
                  results,
                  metric='mIoU',
                  logger=None,
-                 gt_seg_maps=None,
+                 efficient_test=False,
+                 img_log = False,
                  **kwargs):
         """Evaluate the dataset.
 
         Args:
-            results (list[tuple[torch.Tensor]] | list[str]): per image pre_eval
-                 results or predict segmentation map for computing evaluation
-                 metric.
-            metric (str | list[str]): Metrics to be evaluated. 'mIoU',
-                'mDice' and 'mFscore' are supported.
+            results (list): Testing results of the dataset.
+            metric (str | list[str]): Metrics to be evaluated. 'mIoU' and
+                'mDice' are supported.
             logger (logging.Logger | None | str): Logger used for printing
                 related information during evaluation. Default: None.
-            gt_seg_maps (generator[ndarray]): Custom gt seg maps as input,
-                used in ConcatDataset
 
         Returns:
             dict[str, float]: Default metrics.
         """
+
         if isinstance(metric, str):
             metric = [metric]
-        allowed_metrics = ['mIoU', 'mDice', 'mFscore']
+        allowed_metrics = ['mIoU', 'mDice']
         if not set(metric).issubset(set(allowed_metrics)):
             raise KeyError('metric {} is not supported'.format(metric))
-
         eval_results = {}
-        # test a list of files
-        if mmcv.is_list_of(results, np.ndarray) or mmcv.is_list_of(
-                results, str):
-            if gt_seg_maps is None:
-                gt_seg_maps = self.get_gt_seg_maps()
-            num_classes = len(self.CLASSES)
-            ret_metrics = eval_metrics(
-                results,
-                gt_seg_maps,
-                num_classes,
-                self.ignore_index,
-                metric,
-                label_map=dict(),
-                reduce_zero_label=self.reduce_zero_label)
-        # test a list of pre_eval_results
+        gt_seg_maps = self.get_gt_seg_maps(efficient_test)
+        if self.CLASSES is None:
+            num_classes = len(
+                reduce(np.union1d, [np.unique(_) for _ in gt_seg_maps]))
         else:
-            ret_metrics = pre_eval_to_metrics(results, metric)
-
-        # Because dataset.CLASSES is required for per-eval.
+            num_classes = len(self.CLASSES)
+        ret_metrics, imgs_iou = eval_metrics(
+            results,
+            gt_seg_maps,
+            num_classes,
+            self.ignore_index,
+            metric,
+            label_map=self.label_map,
+            reduce_zero_label=self.reduce_zero_label)
+        class_table_data = [['Class'] + [m[1:] for m in metric] + ['Acc']]
         if self.CLASSES is None:
             class_names = tuple(range(num_classes))
         else:
             class_names = self.CLASSES
-
-        # summary table
-        ret_metrics_summary = OrderedDict({
-            ret_metric: np.round(np.nanmean(ret_metric_value) * 100, 2)
-            for ret_metric, ret_metric_value in ret_metrics.items()
-        })
-
-        # each class table
-        ret_metrics.pop('aAcc', None)
-        ret_metrics_class = OrderedDict({
-            ret_metric: np.round(ret_metric_value * 100, 2)
-            for ret_metric, ret_metric_value in ret_metrics.items()
-        })
-        ret_metrics_class.update({'Class': class_names})
-        ret_metrics_class.move_to_end('Class', last=False)
-
-        # for logger
-        class_table_data = PrettyTable()
-        for key, val in ret_metrics_class.items():
-            class_table_data.add_column(key, val)
-        
-        summary_table_data = PrettyTable()
-        for key, val in ret_metrics_summary.items():
-            if key == 'aAcc':
-                summary_table_data.add_column(key, [val])
-            else:
-                summary_table_data.add_column('m' + key, [val])
-
+        ret_metrics_round = [
+            np.round(ret_metric * 100, 2) for ret_metric in ret_metrics
+        ]
+        for i in range(num_classes):
+            class_table_data.append([class_names[i]] +
+                                    [m[i] for m in ret_metrics_round[2:]] +
+                                    [ret_metrics_round[1][i]])
+        summary_table_data = [['Scope'] +
+                              ['m' + head
+                               for head in class_table_data[0][1:]] + ['aAcc']]
+        ret_metrics_mean = [
+            np.round(np.nanmean(ret_metric) * 100, 2)
+            for ret_metric in ret_metrics
+        ]
+        summary_table_data.append(['global'] + ret_metrics_mean[2:] +
+                                  [ret_metrics_mean[1]] +
+                                  [ret_metrics_mean[0]])
         print_log('per class results:', logger)
-        print_log('\n' + class_table_data.get_string(), logger=logger)
+        table = AsciiTable(class_table_data)
+        print_log('\n' + table.table, logger=logger)
         print_log('Summary:', logger)
-        print_log('\n' + summary_table_data.get_string(), logger=logger)
+        table = AsciiTable(summary_table_data)
+        print_log('\n' + table.table, logger=logger)
 
-        # each metric dict
-        for key, value in ret_metrics_summary.items():
-            if key == 'aAcc':
-                eval_results[key] = value / 100.0
-            else:
-                eval_results['m' + key] = value / 100.0
-
-        wandb_class = dict()
-        for i, c in enumerate(ret_metrics_class['Class']):
-            key_name1 = str(i) + '_' + c + '.' + 'IoU'
-            wandb_class[key_name1] = ret_metrics_class['IoU'][i]
-            key_name2 = str(i) +'_' + c + '.' + 'Acc'
-            wandb_class[key_name2] = ret_metrics_class['Acc'][i]
-
-        ret_metrics_class.pop('Class', None)
-        for key, value in ret_metrics_class.items():
-            eval_results.update({
-                key + '.' + str(name): value[idx] / 100.0
-                for idx, name in enumerate(class_names)
-            })
-            
-        wandb.log({"val/mIoU":eval_results['mIoU'],"val/mAcc":eval_results['mAcc'],
-        "val/aAcc":eval_results['aAcc'],"class/":wandb_class, "predictions":self.wandb_table})
-        
+        for i in range(1, len(summary_table_data[0])):
+            eval_results[summary_table_data[0]
+                         [i]] = summary_table_data[1][i] / 100.0
+        for i in range(1, len(class_table_data)): # class별 결과 log를 위해 저장
+            key_name1 = 'class/.' + str(i) + '_' + class_table_data[i][0] + '.' + 'IoU'
+            key_name2 = 'class/.' + str(i) + '_' + class_table_data[i][0] + '.' + 'Acc'
+            eval_results[key_name1] = class_table_data[i][1]
+            eval_results[key_name2] = class_table_data[i][2]
+        if mmcv.is_list_of(results, str):
+            for file_name in results:
+                os.remove(file_name)
+        self.wandb_image_log(results, gt_seg_maps, imgs_iou, img_log)
         return eval_results
 
     # wrapper for logging masks to W&B
@@ -888,4 +764,23 @@ class CustomDataset(Dataset):
         class_set = wandb.Classes([{'name': name, 'id': id} 
                            for name, id in zip(self.CLASSES, list(range(len(self.CLASSES))))])
         return wandb.Image(bg_img, classes=class_set, masks=masks)
+<<<<<<< HEAD
 >>>>>>> 603fd7f... [add] wandb image log
+=======
+
+    def wandb_image_log(self, results, seg_map, imgs_iou, img_log = False):
+        columns=["id", "ground truth", "predictions", "mIoU"]
+        columns.extend(self.CLASSES)
+        wandb_table = wandb.Table(columns=columns)
+        for index in tqdm(range(len(self.img_infos))):
+            if img_log == True:
+                bg_img = mmcv.imread(self.img_dir + '/' + self.img_infos[index]['filename'])
+                row = [self.img_infos[index]['filename'], 
+                    self.wb_mask(bg_img = bg_img, true_mask = seg_map[index]), 
+                    self.wb_mask(bg_img = bg_img, pred_mask = results[index])]
+            else:
+                row = [self.img_infos[index]['filename'], 'None', 'None']
+            row.extend(imgs_iou[index])
+            wandb_table.add_data(*row)
+        wandb.log({"predictions":wandb_table})
+>>>>>>> a18b332... [fix] wandb image log for swin transformer
