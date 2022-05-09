@@ -12,6 +12,6 @@ lr_config = dict(policy='poly',
                  power=1.0, min_lr=0.0, by_epoch=False)
 
 # runtime settings
-runner = dict(type='IterBasedRunner', max_iters=320000)
-checkpoint_config = dict(by_epoch=False, interval=2000)
-evaluation = dict(interval=32000, img_log_interval=32000 metric='mIoU')
+runner = dict(type='IterBasedRunner', max_iters=500)
+checkpoint_config = dict(by_epoch=False, interval=500)
+evaluation = dict(interval=250, img_log_interval=250, metric='mIoU')

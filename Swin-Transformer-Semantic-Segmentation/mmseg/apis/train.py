@@ -107,12 +107,7 @@ def train_segmentor(model,
         eval_cfg = cfg.get('evaluation', {})
         eval_cfg['by_epoch'] = cfg.runner['type'] != 'IterBasedRunner'
         eval_hook = DistEvalHook if distributed else EvalHook
-<<<<<<< HEAD
-        # runner.register_hook(eval_hook(val_dataloader, **eval_cfg))
         runner.register_hook(eval_hook(val_dataloader, **eval_cfg), priority='LOW')
-=======
-        runner.register_hook(eval_hook(val_dataloader, **eval_cfg), priority = 'LOW')
->>>>>>> 288b97b... [fix] parameters for wandb test
 
     if cfg.resume_from:
         runner.resume(cfg.resume_from)

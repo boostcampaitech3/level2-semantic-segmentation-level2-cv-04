@@ -45,23 +45,14 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-<<<<<<< HEAD
-        img_dir=f'{data_root}/images/validation',
-        ann_dir=f'{data_root}/annotations/validation',
-=======
+        # img_dir=f'{data_root}/images/validation',
+        # ann_dir=f'{data_root}/annotations/validation',
         img_dir=f'{data_root}/images/',
         ann_dir=f'{data_root}/labels',
         split = f'{data_root}/splits/val.txt',
->>>>>>> 288b97b... [fix] parameters for wandb test
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
         data_root=data_root,
-<<<<<<< HEAD
         img_dir='test/',
-=======
-        img_dir=f'{data_root}/images/',
-        ann_dir=f'{data_root}/labels',
-        split = f'{data_root}/splits/test.txt',
->>>>>>> 288b97b... [fix] parameters for wandb test
         pipeline=test_pipeline))

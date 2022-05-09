@@ -1,7 +1,4 @@
 # yapf:disable
-<<<<<<< HEAD
-log_config = dict()
-=======
 log_config = dict(
     interval=50,
     hooks=[
@@ -13,7 +10,6 @@ log_config = dict(
             name="mmseg_test_uperswin")),
     ],
 )
->>>>>>> 288b97b... [fix] parameters for wandb test
 # yapf:enable
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
