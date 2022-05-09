@@ -8,7 +8,7 @@ train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations'),
     dict(type='RandomFlip', prob=0.5),
-    dict(type='Resize', img_scale=(512, 2048), ratio_range=(0.5, 2.0)),
+    dict(type='Resize', img_scale=(512, 512)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),
     dict(type='PhotoMetricDistortion'),
@@ -21,8 +21,8 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(512, 2048),
-        img_ratios= [0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
+        img_scale=(512, 512),
+        img_ratios= [0.75, 1.0, 1.25, 1.5],
         flip=True,
         transforms=[
             dict(type='Resize', keep_ratio=True),
@@ -44,11 +44,11 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        img_dir='val/img/',
-        ann_dir='val/ann/',
+        img_dir=f'{data_root}/images/validation',
+        ann_dir=f'{data_root}/annotations/validation',
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        img_dir='test/img/',
+        img_dir='test/',
         pipeline=test_pipeline))

@@ -18,7 +18,9 @@ from .pipelines import Compose
 class CustomDataset(Dataset):
 	"""Custom dataset for semantic segmentation. An example of file structure
 	is as followed.
+
 	.. code-block:: none
+
 		├── data
 		│   ├── my_dataset
 		│   │   ├── img_dir
@@ -39,6 +41,8 @@ class CustomDataset(Dataset):
 	in the suffix). If split is given, then ``xxx`` is specified in txt file.
 	Otherwise, all files in ``img_dir/``and ``ann_dir`` will be loaded.
 	Please refer to ``docs/tutorials/new_dataset.md`` for more details.
+
+
 	Args:
 		pipeline (list[dict]): Processing pipeline
 		img_dir (str): Path to image directory
@@ -150,8 +154,10 @@ class CustomDataset(Dataset):
 
 	def get_ann_info(self, idx):
 		"""Get annotation by index.
+
 		Args:
 			idx (int): Index of data.
+
 		Returns:
 			dict: Annotation info of specified index.
 		"""
@@ -168,8 +174,10 @@ class CustomDataset(Dataset):
 
 	def __getitem__(self, idx):
 		"""Get training/test data after pipeline.
+
 		Args:
 			idx (int): Index of data.
+
 		Returns:
 			dict: Training/test data (with annotation if `test_mode` is set
 				False).
@@ -182,8 +190,10 @@ class CustomDataset(Dataset):
 
 	def prepare_train_img(self, idx):
 		"""Get training data and annotations after pipeline.
+
 		Args:
 			idx (int): Index of data.
+
 		Returns:
 			dict: Training data and annotation after pipeline with new keys
 				introduced by pipeline.
@@ -197,8 +207,10 @@ class CustomDataset(Dataset):
 
 	def prepare_test_img(self, idx):
 		"""Get testing data after pipeline.
+
 		Args:
 			idx (int): Index of data.
+
 		Returns:
 			dict: Testing data after pipeline with new keys intorduced by
 				piepline.

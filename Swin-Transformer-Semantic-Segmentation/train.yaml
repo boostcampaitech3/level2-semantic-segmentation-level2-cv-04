@@ -14,7 +14,7 @@ batch_size : 8
 lr : 0.00006
 
 # -- validation
-validate : False
+validate : True
 eval_interval : 2000
 
 # -- checkpoint

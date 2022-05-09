@@ -21,9 +21,7 @@ def main(config_train):
 		cfg.log_config = dict(interval = log_interval,
 								hooks=[dict(type = 'TextLoggerHook'),
 										dict(type = 'WandbLoggerHook',
-											init_kwargs = dict(project = config_train['wandb_proj'],
-															name = config_train['wandb_name'],
-															entity = 'cv04'))
+											init_kwargs = dict(project = config_train['wandb_proj'], name = config_train['wandb_name'], entity='cv04'))
 									])
 	else:
 		cfg.log_config = dict(interval = log_interval,
@@ -47,10 +45,14 @@ def main(config_train):
 	if config_train['save_best_model']:
 		cfg.evaluation['save_best'] = 'mIoU'
 		cfg.evaluation['interval'] = config_train['eval_interval']
+		cfg.checkpoint_config['interval'] = config_train['eval_interval']
 
 	# -- dataset
-	if config_train['train_data_dir']:
-		cfg.data.data_root=config_train['train_data_dir']
+	if config_train['data_dir_root']:
+		cfg.data['train']['img_dir']=os.path.join(config_train['data_dir_root'],'images/training')
+		cfg.data['train']['ann_dir']=os.path.join(config_train['data_dir_root'],'annotations/training')
+		cfg.data['val']['img_dir']=os.path.join(config_train['data_dir_root'],'images/validation')
+		cfg.data['val']['ann_dir']=os.path.join(config_train['data_dir_root'],'annotations/validation')
 	datasets = [build_dataset(cfg.data.train)]
 
 	# -- build model

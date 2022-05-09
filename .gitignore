@@ -18,3 +18,7 @@ mmsegmentation/wandb
 
 outputs
 custom_test_dataset
+*.jpg
+mmsegmentation/output
+mmsegmentation/nohup.out
+
