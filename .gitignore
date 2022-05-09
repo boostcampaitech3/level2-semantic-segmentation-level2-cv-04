@@ -15,3 +15,6 @@ Swin-Transformer-Semantic-Segmentation/wandb
 
 mmsegmentation/out
 mmsegmentation/wandb
+
+outputs
+custom_test_dataset
