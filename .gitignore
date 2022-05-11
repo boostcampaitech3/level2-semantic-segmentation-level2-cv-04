@@ -13,3 +13,5 @@ mmsegmentation/out
 mmsegmentation/wandb
 mmsegmentation/output
 mmsegmentation/nohup.out
+mmseg
+Swin-Transformer-Semantic-Segmentation

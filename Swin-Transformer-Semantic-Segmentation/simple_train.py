@@ -45,6 +45,8 @@ def main(config_train):
 	if config_train['save_best_model']:
 		cfg.evaluation['save_best'] = 'mIoU'
 		cfg.evaluation['interval'] = config_train['eval_interval']
+		cfg.checkpoint_config['interval'] = config_train['eval_interval']
+
 
 	# -- dataset
 	if config_train['train_data_dir']:

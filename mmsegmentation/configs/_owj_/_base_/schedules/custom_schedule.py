@@ -14,5 +14,5 @@ lr_config = dict(policy='poly',
 
 # runtime settings
 runner = dict(type='IterBasedRunner', max_iters=320000)
-checkpoint_config = dict(by_epoch=False, interval=32000)
-evaluation = dict(interval=32000, metric='mIoU')
+checkpoint_config = dict(by_epoch=False, interval=4000)
+evaluation = dict(interval=4000, metric='mIoU')

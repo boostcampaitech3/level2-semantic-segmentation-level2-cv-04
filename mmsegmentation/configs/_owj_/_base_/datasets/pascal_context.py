@@ -4,7 +4,7 @@ data_root = '../data/mmseg'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
-img_scale = (520, 520)
+img_scale = (512, 512)
 crop_size = (480, 480)
 
 train_pipeline = [
@@ -24,7 +24,7 @@ test_pipeline = [
     dict(
         type='MultiScaleFlipAug',
         img_scale=img_scale,
-        # img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
+        img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
         flip=False,
         transforms=[
             dict(type='Resize', keep_ratio=True),
