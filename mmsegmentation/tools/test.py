@@ -54,7 +54,7 @@ def parse_args():
         ' for generic datasets, and "cityscapes" for Cityscapes')
     parser.add_argument('--show', action='store_true', help='show results')
     parser.add_argument(
-        '--show-dir', help='directory where painted images will be saved')
+        '--show-dir', help='directory where painted images will be saved', default='out/test')
     parser.add_argument(
         '--gpu-collect',
         action='store_true',
@@ -264,7 +264,6 @@ def main():
         with open(f'{args.show_dir}/{file_name_txt}','w') as f:
             for r in result[0]:
                 f.write(' '.join(map(str,r.tolist())) + '\n')
-
 
     # # clean gpu memory when starting a new evaluation.
     # torch.cuda.empty_cache()
