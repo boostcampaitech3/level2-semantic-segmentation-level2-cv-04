@@ -12,6 +12,7 @@ mmsegmentation/work_dirs
 mmsegmentation/out
 mmsegmentation/wandb
 mmsegmentation/output
+mmsegmentation/output2
 mmsegmentation/nohup.out
 mmseg
 Swin-Transformer-Semantic-Segmentation
