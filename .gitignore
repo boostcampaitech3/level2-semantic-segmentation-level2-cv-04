@@ -4,6 +4,7 @@ code/saved
 code/wandb
 code/__pycache__
 data
+mmseg
 
 __pycache__/
 *.py[cod]

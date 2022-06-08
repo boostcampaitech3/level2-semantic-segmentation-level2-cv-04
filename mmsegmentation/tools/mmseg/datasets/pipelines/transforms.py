@@ -598,6 +598,8 @@ class RandomCrop(object):
 
     def get_crop_bbox(self, img):
         """Randomly get a crop bounding box."""
+        idx = random.choice([0,1,2,3,4,5])
+        self.crop_size = [(50,50),(100,100),(200,200),(300,300),(400,400),(500,500)][idx]
         margin_h = max(img.shape[0] - self.crop_size[0], 0)
         margin_w = max(img.shape[1] - self.crop_size[1], 0)
         offset_h = np.random.randint(0, margin_h + 1)
