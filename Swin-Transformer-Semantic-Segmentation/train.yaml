@@ -1,0 +1,28 @@
+# -- config path
+config_dir : '_rhs_/custom'
+config_file : 'custom_config'
+
+## -- wandb
+wandb : True
+wandb_proj : 'Semantic Segmentation'
+wandb_name : 'Swin-B'
+log_interval : 50
+
+# -- hyperparameter
+seed : 84
+batch_size : 8
+lr : 0.00006
+
+# -- validation
+validate : True
+eval_interval : 2000
+
+# -- checkpoint
+use_ckpt : True
+ckpt_name : 'upernet_swin_base_patch4_window7_512x512'
+
+## -- save best model
+save_best_model : True
+
+train_data_dir : '/opt/ml/level2-semantic-segmentation-level2-cv-04/custom_dataset'
+
