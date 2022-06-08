@@ -35,7 +35,6 @@ class CustomDataset(Dataset):
 		│   │   │   │   ├── yyy{seg_map_suffix}
 		│   │   │   │   ├── zzz{seg_map_suffix}
 		│   │   │   ├── val
-
 	The img/gt_semantic_seg pair of CustomDataset should be of the same
 	except suffix. A valid img/gt_semantic_seg filename pair should be like
 	``xxx{img_suffix}`` and ``xxx{seg_map_suffix}`` (extension is also included
@@ -119,7 +118,6 @@ class CustomDataset(Dataset):
 	def load_annotations(self, img_dir, img_suffix, ann_dir, seg_map_suffix,
 							split):
 		"""Load annotation from directory.
-
 		Args:
 			img_dir (str): Path to image directory
 			img_suffix (str): Suffix of images.
@@ -128,7 +126,6 @@ class CustomDataset(Dataset):
 			split (str|None): Split txt file. If split is specified, only file
 				with suffix in the splits will be loaded. Otherwise, all images
 				in img_dir/ann_dir will be loaded. Default: None
-
 		Returns:
 			list[dict]: All image info of dataset.
 		"""
@@ -243,7 +240,6 @@ class CustomDataset(Dataset):
 
 	def get_classes_and_palette(self, classes=None, palette=None):
 		"""Get class names of current dataset.
-
 		Args:
 			classes (Sequence[str] | str | None): If classes is None, use
 				default CLASSES defined by builtin dataset. If classes is a
@@ -311,14 +307,12 @@ class CustomDataset(Dataset):
 					efficient_test=False,
 					**kwargs):
 		"""Evaluate the dataset.
-
 		Args:
 			results (list): Testing results of the dataset.
 			metric (str | list[str]): Metrics to be evaluated. 'mIoU' and
 				'mDice' are supported.
 			logger (logging.Logger | None | str): Logger used for printing
 				related information during evaluation. Default: None.
-
 		Returns:
 			dict[str, float]: Default metrics.
 		"""
